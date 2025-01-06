@@ -39,12 +39,12 @@ def get_song_recommendation(mood):
         sad_song = random.choice(song_recommendations["sad"])
         uplifting_song = random.choice(song_recommendations["uplifting"])
         return (
-            f"You feel sad. Here's a song to match your mood: {sad_song}\n"
+            f" Here's a song to match your mood: {sad_song}\n"
             f"If you'd like to cheer up, try this uplifting song: {uplifting_song}"
         )
     elif mood in song_recommendations:
         suggested_song = random.choice(song_recommendations[mood])
-        return f"You're feeling {mood}. Here's a song for you: {suggested_song}"
+        return f"Here's a song for you: {suggested_song}"
     else:
         return "I'm not sure about that mood. Try happy, sad, or neutral."
 
