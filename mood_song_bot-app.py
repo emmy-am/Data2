@@ -12,25 +12,31 @@ song_recommendations = {
         "Happy - Pharrell Williams",
         "Walking on Sunshine - Katrina and the Waves",
         "Can’t Stop the Feeling - Justin Timberlake",
-        "Shake It Off - Taylor Swift"
+        "Shake It Off - Taylor Swift",
+        "ludacris -  get back"
     ],
     "sad": [
         "Someone Like You - Adele",
         "Fix You - Coldplay",
         "Let Her Go - Passenger",
-        "Hallelujah - Leonard Cohen"
+        "Fade Into You"
     ],
     "neutral": [
         "Bohemian Rhapsody - Queen",
         "Hotel California - Eagles",
         "Wonderwall - Oasis",
-        "Imagine - John Lennon"
+        "Imagine - John Lennon",
+        
     ],
     "uplifting": [
         "Don’t Stop Believin’ - Journey",
         "Stronger - Kelly Clarkson",
         "Eye of the Tiger - Survivor",
-        "I Will Survive - Gloria Gaynor"
+        "I Will Survive - Gloria Gaynor",
+        "Can't Stop the Feeling",
+        "Say little prayer for you- Aretha Franklin",
+        "Imagine Dragons - Thunder"
+        
     ]
 }
 
