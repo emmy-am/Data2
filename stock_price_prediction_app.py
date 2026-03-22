@@ -11,6 +11,7 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from datetime import datetime
+from tensorflow.keras.callbacks import EarlyStopping
 
 # Set random seed for reproducibility
 seed = 42
@@ -78,6 +79,8 @@ if st.button("Predict"):
             # Train the model and save it
             model = create_lstm_model(sequence_length)
             model.fit(X, y, batch_size=32, epochs=100, verbose=0)
+            early_stop = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)
+            model.fit(X, y, batch_size=32, epochs=100, callbacks=[early_stop], verbose=0)
             model.save('stock_price_model.h5')
 
         # Predict on the entire dataset (for accuracy metrics)
