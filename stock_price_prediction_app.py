@@ -46,7 +46,7 @@ stock_symbol = st.text_input("Enter Stock Symbol (e.g., AAPL):", "AAPL")
 prediction_date = st.date_input("Enter the Date:", value=pd.to_datetime("today"))
 
 # Automatically set training range
-train_start_date = "2010-01-01"
+train_start_date = "2020-01-01"
 train_end_date = pd.to_datetime("today").strftime('%Y-%m-%d')
 
 if st.button("Predict"):
