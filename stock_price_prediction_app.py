@@ -1,102 +1,131 @@
 
 
-# In[2]:
-
-
-import streamlit as st
-import numpy as np
 import pandas as pd
+import streamlit as st
 import yfinance as yf
+import numpy as np
+import random
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 import matplotlib.pyplot as plt
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from datetime import datetime
 
-# Define helper functions
-def create_sequences(data, sequence_length):
-    X, y = [], []
-    for i in range(len(data) - sequence_length):
-        X.append(data[i:i + sequence_length])
-        y.append(data[i + sequence_length])
-    return np.array(X), np.array(y)
+# Set random seed for reproducibility
+seed = 42
+np.random.seed(seed)
+random.seed(seed)
+import tensorflow as tf
+tf.random.set_seed(seed)
 
-def train_lstm_model(X_train, y_train, X_test, y_test):
+# Function to preprocess data
+def preprocess_data(data):
+    data = data[['Close']].copy()  # Keep only the 'Close' price column
+    data.dropna(inplace=True)
+    return data
+
+# Enhanced LSTM model
+def create_lstm_model(sequence_length):
     model = Sequential([
-        LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], 1)),
-        Dropout(0.2),
-        LSTM(units=50, return_sequences=False),
-        Dropout(0.2),
-        Dense(units=25),
+        LSTM(units=100, return_sequences=True, input_shape=(sequence_length, 1)),
+        Dropout(0.3),
+        LSTM(units=100, return_sequences=False),
+        Dropout(0.3),
+        Dense(units=50),
         Dense(units=1)
     ])
     model.compile(optimizer='adam', loss='mean_squared_error')
-    model.fit(X_train, y_train, batch_size=32, epochs=20, validation_data=(X_test, y_test), verbose=1)
     return model
 
 # Streamlit app
-st.title("📈 Stock Price Prediction with LSTM")
+st.title("📈 Real-Time Stock Price Prediction App")
 
+# Input fields
 stock_symbol = st.text_input("Enter Stock Symbol (e.g., AAPL):", "AAPL")
-start_date = st.date_input("Start Date", value=pd.to_datetime("2020-01-01"))
-end_date = st.date_input("End Date", value=pd.to_datetime("2023-01-01"))
+prediction_date = st.date_input("Enter the Date:", value=pd.to_datetime("today"))
+
+# Automatically set training range
+train_start_date = "2010-01-01"
+train_end_date = pd.to_datetime("today").strftime('%Y-%m-%d')
 
 if st.button("Predict"):
-    # Fetch stock data
-    data = yf.download(stock_symbol, start=start_date, end=end_date)
+    # Fetch data from Yahoo Finance
+    data = yf.download(stock_symbol, start=train_start_date, end=train_end_date)
+    
     if data.empty:
-        st.error("No data available for the given stock symbol and date range.")
+        st.error("No data available for the specified stock symbol.")
     else:
         # Preprocess data
-        data = data[['Open', 'High', 'Low', 'Close', 'Volume']].apply(pd.to_numeric, errors='coerce').dropna()
+        data = preprocess_data(data)
+
+        # Prepare the data for training
         close_prices = data['Close'].values.reshape(-1, 1)
         scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_data = scaler.fit_transform(close_prices)
-        
-        # Create sequences
+
         sequence_length = 60
-        X, y = create_sequences(scaled_data, sequence_length)
-        split = int(0.8 * len(X))
-        X_train, X_test = X[:split], X[split:]
-        y_train, y_test = y[:split], y[split:]
+        X, y = [], []
+        for i in range(len(scaled_data) - sequence_length):
+            X.append(scaled_data[i:i + sequence_length])
+            y.append(scaled_data[i + sequence_length])
+        X, y = np.array(X), np.array(y)
 
-        # Train LSTM model
-        model = train_lstm_model(X_train, y_train, X_test, y_test)
-        
-        # Evaluate model
-        train_loss = model.evaluate(X_train, y_train)
-        test_loss = model.evaluate(X_test, y_test)
-        st.write(f"Train Loss: {train_loss}")
-        st.write(f"Test Loss: {test_loss}")
+        # Check if a saved model exists
+        try:
+            model = load_model('stock_price_model.h5')
+        except:
+            # Train the model and save it
+            model = create_lstm_model(sequence_length)
+            model.fit(X, y, batch_size=32, epochs=100, verbose=0)
+            model.save('stock_price_model.h5')
 
-        # Predict and plot
-        test_predictions = model.predict(X_test)
-        test_predictions = scaler.inverse_transform(test_predictions)
-        y_test_actual = scaler.inverse_transform(y_test.reshape(-1, 1))
+        # Predict on the entire dataset (for accuracy metrics)
+        predictions = model.predict(X)
+        predictions = scaler.inverse_transform(predictions)
+        actual = scaler.inverse_transform(y.reshape(-1, 1))
 
-        fig, ax = plt.subplots()
-        ax.plot(range(len(y_test_actual)), y_test_actual, label='Actual Prices', color='blue')
-        ax.plot(range(len(test_predictions)), test_predictions, label='Predicted Prices', color='red')
-        ax.set_title('LSTM Stock Price Prediction')
-        ax.set_xlabel('Time')
-        ax.set_ylabel('Stock Price')
-        ax.legend()
-        st.pyplot(fig)
+        # Calculate accuracy metrics
+        mae = mean_absolute_error(actual, predictions)
+        mse = mean_squared_error(actual, predictions)
+        rmse = np.sqrt(mse)
+        mape = np.mean(np.abs((actual - predictions) / actual)) * 100
+        accuracy_rate = 100 - mape
 
-        # Forecast next 7 days
-        last_sequence = scaled_data[-sequence_length:]
-        future_predictions = []
-        for _ in range(7):
-            next_prediction = model.predict(last_sequence[np.newaxis, :, :])[0, 0]
-            future_predictions.append(next_prediction)
-            last_sequence = np.append(last_sequence[1:], [[next_prediction]], axis=0)
-        
-        future_predictions = scaler.inverse_transform(np.array(future_predictions).reshape(-1, 1))
-        st.write("### Forecasted Prices for the Next 7 Days:")
-        for i, price in enumerate(future_predictions, 1):
-            st.write(f"Day {i}: ${price[0]:.2f}")
+        # Use the model to predict the stock price for the user-specified date
+        prediction_date_str = prediction_date.strftime('%Y-%m-%d')
 
+        # Ensure the prediction date is in the data range
+        if prediction_date_str in data.index:
+            date_index = data.index.get_loc(prediction_date_str)
+            if date_index >= sequence_length:
+                last_sequence = scaled_data[date_index - sequence_length:date_index]
+                prediction = model.predict(last_sequence[np.newaxis, :, :])[0, 0]
+                prediction = scaler.inverse_transform([[prediction]])[0][0]
+                st.write(f"### Predicted Stock Price for {stock_symbol} on {prediction_date_str}: ${prediction:.2f}")
+            else:
+                st.error("Not enough data available before the prediction date to create input sequence.")
+        else:
+            st.error("Prediction date is not in the dataset.")
 
-# In[ ]:
+        # Display accuracy metrics
+        st.write("### Model Accuracy Metrics:")
+        st.write(f"Mean Absolute Error (MAE): {mae:.2f}")
+        st.write(f"Mean Squared Error (MSE): {mse:.2f}")
+        st.write(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
+        st.write(f"Accuracy Rate: {accuracy_rate:.2f}%")
+
+        # Plot actual vs predicted prices
+        st.write("### Actual vs Predicted Prices")
+        plt.figure(figsize=(14, 5))
+        plt.plot(actual, label="Actual Prices", color="blue")
+        plt.plot(predictions, label="Predicted Prices", color="red")
+        plt.title("Actual vs Predicted Prices")
+        plt.xlabel("Time Steps")
+        plt.ylabel("Stock Price")
+        plt.legend()
+        st.pyplot(plt)
+
 
 
 
